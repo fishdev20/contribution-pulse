@@ -334,3 +334,92 @@ Current automated tests include:
 5. Managed Redis
 
 ---
+
+## CI/CD and release architecture
+
+### GitHub Actions workflows
+- `CI` -> `.github/workflows/ci.yml`
+  - triggers on push to `main` and pull requests
+  - runs dependency install, Prisma client generation, tests, and production build
+- `Deploy to Vercel` -> `.github/workflows/vercel-deploy.yml`
+  - triggers on push to `main` and manual dispatch
+  - runs `vercel pull`, `vercel build`, `vercel deploy --prebuilt`
+
+### CI/CD pipeline diagram
+```mermaid
+flowchart LR
+  DEV[Developer Push/PR] --> GHA1[GitHub Actions: CI]
+  GHA1 --> T1[npm ci]
+  T1 --> T2[prisma generate]
+  T2 --> T3[vitest]
+  T3 --> T4[next build]
+  T4 -->|main only| GHA2[GitHub Actions: Vercel Deploy]
+  GHA2 --> V1[vercel pull]
+  V1 --> V2[vercel build --prod]
+  V2 --> V3[vercel deploy --prebuilt --prod]
+  V3 --> PROD[Vercel Production]
+```
+
+### Required GitHub repository secrets
+Set these in GitHub repo settings -> Secrets and variables -> Actions:
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+---
+
+## Docker deployment
+
+### Files added
+- `Dockerfile` -> production image for Next.js web app
+- `docker-compose.yml` -> web + worker + Redis local/prod-like stack
+- `.dockerignore` -> optimized build context
+
+### Docker architecture diagram
+```mermaid
+flowchart LR
+  U[Browser] --> WEB[web container<br/>Next.js]
+  WEB --> DB[(Postgres)]
+  WEB --> R[(Redis)]
+  WEB --> SA[Supabase Auth]
+  WEB --> Q[(BullMQ queue)]
+  WRK[worker container<br/>npm run worker] --> Q
+  WRK --> DB
+  WRK --> GL[GitLab API]
+  WRK --> AZ[Azure DevOps API]
+  WRK --> GH[GitHub API]
+  WRK --> R
+```
+
+### Run with Docker Compose
+```bash
+docker compose up --build -d
+```
+
+Services:
+- `web` -> app on `http://localhost:3000`
+- `worker` -> background sync worker
+- `redis` -> queue broker + pub/sub
+
+Stop:
+```bash
+docker compose down
+```
+
+### Notes
+- `docker-compose.yml` uses `.env` for app secrets.
+- Keep `DATABASE_URL` pointing to your managed Postgres (or add a Postgres service if desired).
+- Run `npm run worker:nightly` once per environment to register the repeatable nightly sync schedule.
+
+---
+
+## Known constraints and next scaling steps
+- Current worker loops integrations sequentially per user job.
+- Redis pub/sub publisher currently opens per-publish connection (can be pooled).
+- Nightly sync processes all users in one scheduler-triggered workflow.
+
+Recommended next steps:
+- provider-level job fan-out for large tenants
+- shared Redis connection pooling for event publish
+- metrics/tracing (OpenTelemetry)
+- dead-letter queue and alerting for repeated sync failures
