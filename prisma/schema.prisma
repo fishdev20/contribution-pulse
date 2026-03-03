@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Provider {
+  GITLAB
+  AZURE_DEVOPS
+  GITHUB
+}
+
+enum SyncState {
+  IDLE
+  RUNNING
+  FAILED
+}
+
+model User {
+  id               String         @id @default(cuid())
+  supabaseUserId   String         @unique
+  email            String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  integrations     Integration[]
+  dailyActivities  DailyActivity[]
+  manualHighlights ManualHighlight[]
+  publicShares     PublicShare[]
+
+  @@index([email])
+}
+
+model Integration {
+  id                  String    @id @default(cuid())
+  userId               String
+  provider             Provider
+  encryptedToken       String
+  tokenIv              String
+  tokenTag             String
+  gitlabBaseUrl        String?
+  azureOrg             String?
+  authorEmails         String[] @default([])
+  syncState            SyncState @default(IDLE)
+  lastSyncedAt         DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([provider])
+}
+
+model DailyActivity {
+  id           String    @id @default(cuid())
+  userId        String
+  provider      Provider
+  date          DateTime
+  commitCount   Int       @default(0)
+  mergeCount    Int       @default(0)
+  prCount       Int       @default(0)
+  pipelineCount Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, date])
+  @@index([userId, date])
+}
+
+model ManualHighlight {
+  id         String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  note        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model PublicShare {
+  id          String    @id @default(cuid())
+  userId       String
+  token        String    @unique
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
