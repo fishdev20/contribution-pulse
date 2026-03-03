@@ -16,7 +16,6 @@ export function AccountControls() {
     await supabase.auth.signOut();
     window.location.href = "/";
   }
-        pushToast({ title: "Provider disconnected", subtitle: "test" }, "success");
 
   async function disconnect(provider: "GITLAB" | "AZURE_DEVOPS" | "GITHUB") {
     try {
