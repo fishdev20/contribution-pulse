@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Provider } from "@prisma/client";
 import { encryptSecret } from "@/server/crypto/encryption";
 import { prisma } from "@/server/db/prisma";
 import { requireAppUser } from "@/server/auth/user";
@@ -18,11 +17,11 @@ export async function POST(request: Request) {
 
   await prisma.integration.upsert({
     where: {
-      userId_provider: { userId: appUser.id, provider: Provider.GITLAB },
+      userId_provider: { userId: appUser.id, provider: "GITLAB" },
     },
     create: {
       userId: appUser.id,
-      provider: Provider.GITLAB,
+      provider: "GITLAB",
       encryptedToken: encrypted.ciphertext,
       tokenIv: encrypted.iv,
       tokenTag: encrypted.tag,

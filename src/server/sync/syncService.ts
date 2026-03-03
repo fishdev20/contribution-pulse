@@ -76,7 +76,7 @@ export async function syncUserContributions(userId: string, options?: SyncJobOpt
       const daily = aggregateDaily(events);
       const upserts = toDailyUpserts(user.id, integration.provider, daily);
 
-      await prisma.$transaction(upserts.map((upsert) => prisma.dailyActivity.upsert(upsert)));
+      await prisma.$transaction(upserts.map((upsert) => prisma.dailyActivity.upsert(upsert as any)));
       safeLog("info", "Sync completed", {
         userId,
         provider: integration.provider,

@@ -288,6 +288,8 @@ Copy `.env.example` to `.env.local` and set:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `MASTER_KEY` (base64-encoded 32-byte key)
 - `REDIS_URL`
+- `SYNC_QUEUE_BACKEND` (`bull` or `supabase`)
+- `CRON_SECRET` (required when `SYNC_QUEUE_BACKEND=supabase`)
 - `APP_URL`
 - `NEXT_PUBLIC_APP_NAME` (optional, default `ContributionPulse`)
 - `NEXT_PUBLIC_APP_SLUG` (optional, default derived from app name)
@@ -312,6 +314,50 @@ npm run worker:nightly
 ```
 
 `worker:nightly` registers the repeatable nightly sync schedule. Run it once per environment.
+
+### Supabase queue mode (no Redis worker required)
+If you want to run without BullMQ/Redis for low-cost environments:
+
+1. Set:
+```bash
+SYNC_QUEUE_BACKEND=supabase
+CRON_SECRET=<strong-random-secret>
+```
+
+2. Do not run `npm run worker` for queue processing.
+
+3. Trigger queue processing by calling:
+```bash
+POST /api/internal/sync/process
+Authorization: Bearer <CRON_SECRET>
+```
+
+You can process manually:
+```bash
+npm run queue:process
+```
+
+4. Schedule this endpoint with Supabase Cron (example every minute):
+```sql
+select
+  cron.schedule(
+    'process-contribution-sync-queue',
+    '* * * * *',
+    $$
+    select
+      net.http_post(
+        url := 'https://YOUR_APP_DOMAIN/api/internal/sync/process?limit=10',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer YOUR_CRON_SECRET'
+        ),
+        body := '{}'::jsonb
+      );
+    $$
+  );
+```
+
+This keeps BullMQ code in the project for future scale, while allowing Redis-free operation today.
 
 ---
 

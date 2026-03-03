@@ -1,4 +1,3 @@
-import { Provider } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import { aggregateDaily, toDailyUpserts } from "../src/server/sync/aggregation";
 
@@ -27,11 +26,11 @@ describe("aggregation logic", () => {
       ],
     ]);
 
-    const upserts = toDailyUpserts("user_1", Provider.GITLAB, aggregated);
+    const upserts = toDailyUpserts("user_1", "GITLAB", aggregated);
 
     expect(upserts).toHaveLength(1);
-    expect(upserts[0].create.userId).toBe("user_1");
-    expect(upserts[0].create.provider).toBe(Provider.GITLAB);
-    expect(upserts[0].create.commitCount).toBe(1);
+    expect((upserts[0] as any).create.userId).toBe("user_1");
+    expect((upserts[0] as any).create.provider).toBe("GITLAB");
+    expect((upserts[0] as any).create.commitCount).toBe(1);
   });
 });

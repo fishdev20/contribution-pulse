@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Provider } from "@prisma/client";
 import { requireAppUser } from "@/server/auth/user";
 import { prisma } from "@/server/db/prisma";
 
@@ -15,7 +14,7 @@ export async function POST(request: Request) {
     provider = String(form.get("provider") ?? "");
   }
 
-  if (provider !== Provider.GITLAB && provider !== Provider.AZURE_DEVOPS && provider !== Provider.GITHUB) {
+  if (provider !== "GITLAB" && provider !== "AZURE_DEVOPS" && provider !== "GITHUB") {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }
 

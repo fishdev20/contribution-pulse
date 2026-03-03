@@ -23,10 +23,10 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   ]);
 
   const ninetyDaysAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 90);
-  const recent = activities.filter((row) => row.date >= ninetyDaysAgo);
+  const recent = activities.filter((row: any) => row.date >= ninetyDaysAgo);
 
   const totals = recent.reduce(
-    (acc, row) => {
+    (acc: { commits: number; merges: number; prs: number; pipelines: number }, row: any) => {
       acc.commits += row.commitCount;
       acc.merges += row.mergeCount;
       acc.prs += row.prCount;
@@ -54,7 +54,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
     }
   >();
 
-  for (const row of activities) {
+  for (const row of activities as any[]) {
     const key = row.date.toISOString().slice(0, 10);
     const current = byDay.get(key) ?? {
       gitlabCommits: 0,
@@ -119,7 +119,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
       <section className="rounded-2xl border border-border/60 bg-card/70 p-6 shadow-sm">
         <h2 className="text-xl font-semibold">Manual highlights</h2>
         <ul className="mt-3 space-y-2 text-sm">
-          {highlights.map((highlight) => (
+          {highlights.map((highlight: any) => (
             <li key={highlight.id} className="rounded-lg border border-border/60 bg-background/50 p-3">
               <strong>{highlight.date.toISOString().slice(0, 10)}</strong>: {highlight.note}
             </li>

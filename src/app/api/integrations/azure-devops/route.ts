@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Provider } from "@prisma/client";
 import { encryptSecret } from "@/server/crypto/encryption";
 import { prisma } from "@/server/db/prisma";
 import { requireAppUser } from "@/server/auth/user";
@@ -19,11 +18,11 @@ export async function POST(request: Request) {
 
   await prisma.integration.upsert({
     where: {
-      userId_provider: { userId: appUser.id, provider: Provider.AZURE_DEVOPS },
+      userId_provider: { userId: appUser.id, provider: "AZURE_DEVOPS" },
     },
     create: {
       userId: appUser.id,
-      provider: Provider.AZURE_DEVOPS,
+      provider: "AZURE_DEVOPS",
       encryptedToken: encrypted.ciphertext,
       tokenIv: encrypted.iv,
       tokenTag: encrypted.tag,

@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "worker": "tsx scripts/worker.ts",
-    "worker:nightly": "tsx scripts/nightly.ts"
+    "worker:nightly": "tsx scripts/nightly.ts",
+    "queue:process": "tsx scripts/process-supabase-queue.ts"
   },
   "dependencies": {
     "@prisma/client": "6.5.0",

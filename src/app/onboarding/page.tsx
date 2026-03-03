@@ -8,7 +8,7 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingClient
-      initialIntegrations={integrations.map((integration) => ({
+      initialIntegrations={integrations.map((integration: any) => ({
         provider: integration.provider as "GITLAB" | "AZURE_DEVOPS" | "GITHUB",
         gitlabBaseUrl: integration.gitlabBaseUrl,
         azureOrg: integration.azureOrg,

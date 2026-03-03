@@ -1,4 +1,4 @@
-import { Provider, Prisma } from "@prisma/client";
+export type ProviderName = "GITLAB" | "AZURE_DEVOPS" | "GITHUB";
 
 export type EventMetric = {
   date: string;
@@ -37,9 +37,9 @@ export function aggregateDaily(events: EventMetric[]): Map<string, Required<Omit
 
 export function toDailyUpserts(
   userId: string,
-  provider: Provider,
+  provider: ProviderName,
   metrics: Map<string, Required<Omit<EventMetric, "date">>>,
-): Prisma.DailyActivityUpsertArgs[] {
+): Array<Record<string, unknown>> {
   return Array.from(metrics.entries()).map(([dateIso, counts]) => ({
     where: {
       userId_provider_date: {

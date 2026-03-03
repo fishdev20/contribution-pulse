@@ -19,7 +19,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   });
 
   const totals = activities.reduce(
-    (acc, row) => {
+    (acc: { commits: number; merges: number; prs: number; pipelines: number }, row: any) => {
       acc.commits += row.commitCount;
       acc.merges += row.mergeCount;
       acc.prs += row.prCount;
