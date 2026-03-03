@@ -152,6 +152,7 @@ erDiagram
   User ||--o{ DailyActivity : has
   User ||--o{ ManualHighlight : has
   User ||--o{ PublicShare : has
+  User ||--o{ SyncJob : has
 
   User {
     string id PK
@@ -198,12 +199,43 @@ erDiagram
     datetime expiresAt
     datetime revokedAt
   }
+
+  SyncJob {
+    string id PK
+    string userId FK
+    enum provider NULL
+    datetime from NULL
+    datetime to NULL
+    int backfillYear NULL
+    enum status
+    int attemptCount
+    int maxAttempts
+    datetime availableAt
+    datetime lockedAt NULL
+    datetime startedAt NULL
+    datetime finishedAt NULL
+    string errorMessage NULL
+    datetime createdAt
+    datetime updatedAt
+  }
 ```
 
 ### Privacy boundaries in data model
 - `Integration` keeps encrypted secrets only.
 - `DailyActivity` is aggregate-only.
+- `SyncJob` stores orchestration metadata only (no provider raw payloads, no repo names, no commit messages).
 - No model stores repository names or commit messages.
+
+### Supabase sync job lifecycle (when `SYNC_QUEUE_BACKEND=supabase`)
+- `QUEUED`: job waiting for processing (`availableAt <= now` means runnable).
+- `RUNNING`: worker has lock and is executing provider sync.
+- `COMPLETED`: sync finished successfully, `finishedAt` set.
+- `FAILED`: retries exhausted or non-retryable failure, `errorMessage` recorded.
+
+Retry/backoff behavior:
+- `attemptCount` increments when a worker locks a queued job.
+- if `attemptCount < maxAttempts`, job is re-queued with future `availableAt`.
+- backoff is exponential and capped (current implementation caps at 60 seconds).
 
 ---
 
@@ -316,7 +348,7 @@ npm run worker:nightly
 `worker:nightly` registers the repeatable nightly sync schedule. Run it once per environment.
 
 ### Supabase queue mode (no Redis worker required)
-If you want to run without BullMQ/Redis for low-cost environments:
+Replace BullMQ/Redis solution for low-cost environments:
 
 1. Set:
 ```bash
@@ -332,7 +364,7 @@ POST /api/internal/sync/process
 Authorization: Bearer <CRON_SECRET>
 ```
 
-You can process manually:
+Process manually in dev:
 ```bash
 npm run queue:process
 ```
@@ -346,10 +378,10 @@ select
     $$
     select
       net.http_post(
-        url := 'https://YOUR_APP_DOMAIN/api/internal/sync/process?limit=10',
+        url := 'https://contribution-pulse.vercel.app/api/internal/sync/process?limit=10',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
-          'Authorization', 'Bearer YOUR_CRON_SECRET'
+          'Authorization', 'Bearer CRON_SECRET'
         ),
         body := '{}'::jsonb
       );
@@ -372,7 +404,7 @@ Current automated tests include:
 
 ---
 
-## Deployment topology (recommended)
+## Deployment topology
 1. Web service: Next.js app
 2. Worker service: BullMQ worker process
 3. Scheduler service/job: `worker:nightly` (or one-time bootstrap)
@@ -381,30 +413,6 @@ Current automated tests include:
 
 ---
 
-## CI/CD and release architecture
-
-### GitHub Actions workflows
-- `CI` -> `.github/workflows/ci.yml`
-  - triggers on push to `main` and pull requests
-  - runs dependency install, Prisma client generation, tests, and production build
-- `Deploy to Vercel` -> `.github/workflows/vercel-deploy.yml`
-  - triggers on push to `main` and manual dispatch
-  - runs `vercel pull`, `vercel build`, `vercel deploy --prebuilt`
-
-### CI/CD pipeline diagram
-```mermaid
-flowchart LR
-  DEV[Developer Push/PR] --> GHA1[GitHub Actions: CI]
-  GHA1 --> T1[npm ci]
-  T1 --> T2[prisma generate]
-  T2 --> T3[vitest]
-  T3 --> T4[next build]
-  T4 -->|main only| GHA2[GitHub Actions: Vercel Deploy]
-  GHA2 --> V1[vercel pull]
-  V1 --> V2[vercel build --prod]
-  V2 --> V3[vercel deploy --prebuilt --prod]
-  V3 --> PROD[Vercel Production]
-```
 
 ### Required GitHub repository secrets
 Set these in GitHub repo settings -> Secrets and variables -> Actions:
@@ -466,14 +474,3 @@ docker compose down
 - Run `npm run worker:nightly` once per environment to register the repeatable nightly sync schedule.
 
 ---
-
-## Known constraints and next scaling steps
-- Current worker loops integrations sequentially per user job.
-- Redis pub/sub publisher currently opens per-publish connection (can be pooled).
-- Nightly sync processes all users in one scheduler-triggered workflow.
-
-Recommended next steps:
-- provider-level job fan-out for large tenants
-- shared Redis connection pooling for event publish
-- metrics/tracing (OpenTelemetry)
-- dead-letter queue and alerting for repeated sync failures
