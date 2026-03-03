@@ -365,6 +365,14 @@ Set these in GitHub repo settings -> Secrets and variables -> Actions:
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `MASTER_KEY`
+- `REDIS_URL`
+- `APP_URL`
 
 ---
 

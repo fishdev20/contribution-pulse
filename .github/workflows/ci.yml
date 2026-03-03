@@ -31,12 +31,12 @@ jobs:
 
       - name: Build app
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/contribution_pulse
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/contribution_pulse
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: anon-key
-          SUPABASE_SERVICE_ROLE_KEY: service-role-key
-          MASTER_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          REDIS_URL: redis://localhost:6379
-          APP_URL: http://localhost:3000
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASTER_KEY: ${{ secrets.MASTER_KEY }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          APP_URL: ${{ secrets.APP_URL }}
         run: npm run build
