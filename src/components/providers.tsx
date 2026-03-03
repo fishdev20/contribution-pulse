@@ -1,14 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { createContext, useContext, useMemo, useState } from "react";
+import { createQueryClient } from "@/lib/query-client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
-import { createQueryClient } from "@/lib/query-client";
 import { ThemeProvider } from "next-themes";
+import type { CSSProperties, ReactNode } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
+import { Toaster, toast } from "sonner";
+
 type ToastTone = "success" | "error" | "info";
 type ToastInput = string | { title: string; subtitle?: string };
-type ToastItem = { id: string; title: string; subtitle?: string; tone: ToastTone };
 type ToastContextValue = {
   pushToast: (message: ToastInput, tone?: ToastTone) => void;
 };
@@ -17,17 +18,52 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const toastValue = useMemo<ToastContextValue>(
     () => ({
       pushToast: (message, tone = "info") => {
-        const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const payload = typeof message === "string" ? { title: message } : message;
-        setToasts((prev) => [...prev, { id, title: payload.title, subtitle: payload.subtitle, tone }]);
-        window.setTimeout(() => {
-          setToasts((prev) => prev.filter((toast) => toast.id !== id));
-        }, 3200);
+        const options = {
+          description: payload.subtitle,
+          duration: 3200,
+          style: {
+            background: "color-mix(in oklch, var(--background) 55%, transparent)",
+            color: "var(--foreground)",
+            border: "1px solid color-mix(in oklch, var(--border) 75%, transparent)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+          } as CSSProperties,
+        };
+        const toneClassName =
+          tone === "success"
+            ? "border-emerald-500/55 bg-emerald-500/12 text-foreground"
+            : tone === "error"
+              ? "border-red-500/55 bg-red-500/12 text-foreground"
+              : "border-primary/55 bg-primary/12 text-foreground";
+
+        if (tone === "success") {
+          toast.success(payload.title, {
+            ...options,
+            className: toneClassName,
+            icon: <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />,
+          });
+          return;
+        }
+
+        if (tone === "error") {
+          toast.error(payload.title, {
+            ...options,
+            className: toneClassName,
+            icon: <AlertCircle className="size-4 text-red-600 dark:text-red-400" />,
+          });
+          return;
+        }
+
+        toast(payload.title, {
+          ...options,
+          className: toneClassName,
+          icon: <Info className="size-4 text-primary" />,
+        });
       },
     }),
     [],
@@ -38,34 +74,27 @@ export function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <ToastContext.Provider value={toastValue}>
           {children}
-          <div className="fixed right-4 top-20 z-[100] flex w-[min(92vw,360px)] flex-col gap-2">
-            {toasts.map((toast) => (
-              <div
-                key={toast.id}
-                className={
-                  toast.tone === "success"
-                    ? "rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900 shadow-md"
-                    : toast.tone === "error"
-                      ? "rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900 shadow-md"
-                      : "rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-900 shadow-md"
-                }
-              >
-                <div className="flex items-start gap-2">
-                  {toast.tone === "success" ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  ) : toast.tone === "error" ? (
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  ) : (
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                  )}
-                  <div>
-                    <p className="font-semibold leading-5">{toast.title}</p>
-                    {toast.subtitle ? <p className="mt-0.5 text-xs opacity-90">{toast.subtitle}</p> : null}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Toaster
+            theme="system"
+            position="top-right"
+            richColors={false}
+            closeButton
+            expand={false}
+            visibleToasts={5}
+            offset={20}
+            toastOptions={{
+              className:
+                "group rounded-xl text-foreground shadow-lg [&_[data-close-button]]:rounded-full [&_[data-close-button]]:border [&_[data-close-button]]:border-border/80 [&_[data-close-button]]:bg-background/80 [&_[data-close-button]]:text-foreground [&_[data-close-button]]:shadow-sm hover:[&_[data-close-button]]:bg-accent hover:[&_[data-close-button]]:text-foreground",
+              classNames: {
+                toast:
+                  "group rounded-xl text-foreground shadow-lg [&_[data-close-button]]:rounded-full [&_[data-close-button]]:border [&_[data-close-button]]:border-border/80 [&_[data-close-button]]:bg-background/80 [&_[data-close-button]]:text-foreground",
+                title: "text-sm font-semibold tracking-tight text-foreground",
+                description: "text-xs text-foreground/85 leading-relaxed mt-1",
+                closeButton:
+                  "border-border/80 bg-background/80 text-foreground hover:bg-accent hover:text-foreground",
+              },
+            }}
+          />
         </ToastContext.Provider>
       </ThemeProvider>
     </QueryClientProvider>

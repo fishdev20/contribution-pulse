@@ -1,4 +1,5 @@
-import { PublicReportVisuals } from "@/components/public-report-visuals";
+import { DashboardChart } from "@/components/dashboard-chart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/server/db/prisma";
 import { BadgeCheck, CalendarClock, GitCommitHorizontal, GitMerge, GitPullRequest, Workflow } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -94,40 +95,53 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   const chartData = Array.from(byDay.entries()).map(([date, counts]) => ({ date, ...counts }));
 
   return (
-    <div className="mx-auto flex flex-col max-w-6xl gap-6">
-      <section className="rounded-2xl border border-border/60 bg-card/70 p-6 shadow-sm">
-        <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-          <BadgeCheck className="size-3.5" />
-          Public read-only report
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Contribution verification report</h1>
-        <p className="mt-2 inline-flex items-start gap-2 text-sm text-muted-foreground">
-          <CalendarClock className="mt-0.5 size-4 shrink-0 text-primary" />
-          Verification stamp: Data pulled on {new Date().toISOString().slice(0, 10)} via official APIs; only aggregate counts stored.
-        </p>
-      </section>
+    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+      <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-row flex-wrap items-start justify-between gap-3 duration-500">
+        <div>
+          <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <BadgeCheck className="size-3.5" />
+            Public read-only report
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">Contribution verification report</h1>
+          <p className="mt-2 inline-flex items-start gap-2 text-sm text-muted-foreground">
+            <CalendarClock className="mt-0.5 size-4 shrink-0 text-primary" />
+            Verification stamp: Data pulled on {new Date().toISOString().slice(0, 10)} via official APIs; only aggregate counts stored.
+          </p>
+        </div>
+      </div>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="animate-in fade-in slide-in-from-bottom-2 grid gap-4 duration-500 md:grid-cols-4">
         <Metric label="Commits (90d)" value={totals.commits} icon={<GitCommitHorizontal className="size-4" />} />
         <Metric label="Merge requests (90d)" value={totals.merges} icon={<GitMerge className="size-4" />} />
         <Metric label="Pull requests (90d)" value={totals.prs} icon={<GitPullRequest className="size-4" />} />
         <Metric label="Pipelines (90d)" value={totals.pipelines} icon={<Workflow className="size-4" />} />
       </section>
 
-      <PublicReportVisuals data={chartData} />
+      <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <DashboardChart data={chartData} />
+      </section>
 
-      <section className="rounded-2xl border border-border/60 bg-card/70 p-6 shadow-sm">
-        <h2 className="text-xl font-semibold">Manual highlights</h2>
-        <ul className="mt-3 space-y-2 text-sm">
-          {highlights.map((highlight: any) => (
-            <li key={highlight.id} className="rounded-lg border border-border/60 bg-background/50 p-3">
-              <strong>{highlight.date.toISOString().slice(0, 10)}</strong>: {highlight.note}
-            </li>
-          ))}
-          {highlights.length === 0 ? (
-            <li className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-3 text-muted-foreground">No highlights shared yet.</li>
-          ) : null}
-        </ul>
+      <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <Card className="border-border/60 shadow-sm transition-all hover:shadow-md">
+          <CardHeader>
+            <CardTitle>Manual highlights</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              {highlights.map((highlight: any) => (
+                <li key={highlight.id} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="font-semibold text-foreground">{highlight.date.toISOString().slice(0, 10)}</p>
+                  <p className="mt-0.5 text-muted-foreground">{highlight.note}</p>
+                </li>
+              ))}
+              {highlights.length === 0 ? (
+                <li className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-muted-foreground">
+                  No highlights shared yet.
+                </li>
+              ) : null}
+            </ul>
+          </CardContent>
+        </Card>
       </section>
     </div>
   );
@@ -135,7 +149,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
 
 function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card/70 p-4 shadow-sm">
+    <div className="rounded-lg border border-border/60 bg-card/80 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
         {icon}
         {label}

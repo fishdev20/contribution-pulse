@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUIStore } from "@/stores/ui-store";
-import { CalendarDays, Funnel } from "lucide-react";
+import { CalendarDays, Cloud, Funnel, GithubIcon, GitlabIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -114,18 +114,41 @@ export function DashboardChart({ data }: { data: Point[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant={providerFilter === "all" ? "default" : "outline"} onClick={() => setProviderFilter("all")} type="button">
+            <Button
+              variant={providerFilter === "all" ? "default" : "outline"}
+              onClick={() => setProviderFilter("all")}
+              type="button"
+              aria-label="All providers"
+            >
               <Funnel className="size-4" />
-              All
+              <span className="hidden sm:inline">All</span>
             </Button>
-            <Button variant={providerFilter === "gitlab" ? "default" : "outline"} onClick={() => setProviderFilter("gitlab")} type="button">
-              GitLab
+            <Button
+              variant={providerFilter === "gitlab" ? "default" : "outline"}
+              onClick={() => setProviderFilter("gitlab")}
+              type="button"
+              aria-label="GitLab"
+            >
+              <GitlabIcon className="size-4" />
+              <span className="hidden sm:inline">GitLab</span>
             </Button>
-            <Button variant={providerFilter === "azure" ? "default" : "outline"} onClick={() => setProviderFilter("azure")} type="button">
-              Azure DevOps
+            <Button
+              variant={providerFilter === "azure" ? "default" : "outline"}
+              onClick={() => setProviderFilter("azure")}
+              type="button"
+              aria-label="Azure DevOps"
+            >
+              <Cloud className="size-4" />
+              <span className="hidden sm:inline">Azure DevOps</span>
             </Button>
-            <Button variant={providerFilter === "github" ? "default" : "outline"} onClick={() => setProviderFilter("github")} type="button">
-              GitHub
+            <Button
+              variant={providerFilter === "github" ? "default" : "outline"}
+              onClick={() => setProviderFilter("github")}
+              type="button"
+              aria-label="GitHub"
+            >
+              <GithubIcon className="size-4" />
+              <span className="hidden sm:inline">GitHub</span>
             </Button>
           </div>
         </div>
@@ -344,10 +367,10 @@ function HeatmapGrid({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60 bg-muted/20 p-3">
-      <div className="min-w-[720px]">
-        <div className="mb-2 grid grid-cols-[56px_1fr] gap-2 text-xs text-muted-foreground">
+      <div className="min-w-[640px]">
+        <div className="mb-2 grid grid-cols-[52px_1fr] gap-2 text-xs text-muted-foreground">
           <div />
-          <div className="grid auto-cols-[16px] grid-flow-col gap-1">
+          <div className="grid auto-cols-[14px] grid-flow-col gap-1">
             {weeks.map((_week, weekIndex) => (
               <div key={weekIndex} className="h-4 text-[11px] leading-4">
                 {monthLookup.get(weekIndex) ?? ""}
@@ -355,25 +378,25 @@ function HeatmapGrid({
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-[56px_1fr] gap-2">
+        <div className="grid grid-cols-[52px_1fr] gap-2">
           <div className="grid grid-rows-7 gap-1 text-xs text-muted-foreground">
             {labels.map((label) => (
-              <div key={label} className="h-5 leading-5">
+              <div key={label} className="h-4 leading-4">
                 {label}
               </div>
             ))}
           </div>
-          <div className="grid auto-cols-[16px] grid-flow-col gap-1">
+          <div className="grid auto-cols-[14px] grid-flow-col gap-1">
             {weeks.map((week, weekIndex) => (
               <div key={weekIndex} className="grid grid-rows-7 gap-1">
                 {Array.from({ length: 7 }).map((_, rowIndex) => {
                   const date = week[rowIndex];
-                  if (!date) return <div key={rowIndex} className="h-4 w-4 rounded-[4px] bg-transparent" />;
+                  if (!date) return <div key={rowIndex} className="h-3.5 w-3.5 rounded-[4px] bg-transparent" />;
                   const value = values.get(date) ?? 0;
                   return (
                     <div
                       key={date}
-                      className="h-4 w-4 rounded-[4px] border border-border/35 transition-colors"
+                      className="h-3.5 w-3.5 rounded-[4px] border border-border/35 transition-colors"
                       style={{ backgroundColor: cellColor(value, maxValue) }}
                       title={`${date}: ${value}`}
                     />

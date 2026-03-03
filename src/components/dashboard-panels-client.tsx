@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FileText, Link2, Sparkles, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import { CalendarIcon, Check, Copy, FileText, Link2, Sparkles, Trash2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppToast } from "@/components/providers";
 import { useCreateHighlightMutation, useCreateShareMutation, useRevokeShareMutation } from "@/lib/api/hooks";
+import { cn } from "@/lib/cn";
 
 type Highlight = { id: string; date: string; note: string };
 type Share = { token: string; revokedAt: string | null; expiresAt: string | null };
@@ -28,6 +32,8 @@ export function DashboardPanelsClient({
   const [expiresInDays, setExpiresInDays] = useState("");
   const [highlightDate, setHighlightDate] = useState("");
   const [highlightNote, setHighlightNote] = useState("");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const now = new Date();
   const activeShare = shares.find((share) => !share.revokedAt && (!share.expiresAt || new Date(share.expiresAt) > now));
@@ -71,6 +77,23 @@ export function DashboardPanelsClient({
     }
   }
 
+  const selectedHighlightDate = highlightDate ? new Date(`${highlightDate}T00:00:00.000Z`) : undefined;
+
+  async function copyShareLink(token: string) {
+    const value =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/public-report/${token}`
+        : `/public-report/${token}`;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedToken(token);
+      pushToast({ title: "Link copied", subtitle: "Public report URL copied to clipboard." }, "success");
+      window.setTimeout(() => setCopiedToken((current) => (current === token ? null : current)), 1500);
+    } catch {
+      pushToast({ title: "Copy failed", subtitle: "Could not copy link to clipboard." }, "error");
+    }
+  }
+
   return (
     <section className="animate-in fade-in slide-in-from-bottom-2 grid min-w-0 gap-6 duration-500 md:grid-cols-2">
       <div className="min-w-0 rounded-xl border border-border/60 bg-card/70 p-6 shadow-sm">
@@ -100,12 +123,24 @@ export function DashboardPanelsClient({
           <div className="mt-4 min-w-0 space-y-3 rounded-lg border border-border/70 bg-muted/20 p-4 text-sm">
             <div className="space-y-1">
               <p className="font-medium text-foreground">Active link</p>
-              <Link
-                className="block break-all rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-xs underline-offset-4 hover:underline"
-                href={`/public-report/${activeShare.token}`}
-              >
-                {`/public-report/${activeShare.token}`}
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  className="block min-w-0 flex-1 break-all rounded-md border border-border/60 bg-background px-3 py-2 font-mono text-xs underline-offset-4 hover:underline"
+                  href={`/public-report/${activeShare.token}`}
+                >
+                  {`/public-report/${activeShare.token}`}
+                </Link>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => copyShareLink(activeShare.token)}
+                >
+                  {copiedToken === activeShare.token ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copiedToken === activeShare.token ? "Copied" : "Copy link"}
+                </Button>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Link href={`/api/report/pdf/${activeShare.token}`}>
@@ -136,7 +171,31 @@ export function DashboardPanelsClient({
         </h2>
         <div className="mt-4 space-y-4">
           <div className="grid gap-3">
-            <Input type="date" value={highlightDate} onChange={(event) => setHighlightDate(event.target.value)} className="h-11 sm:w-[220px]" />
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-11 w-full justify-start text-left font-normal sm:w-[220px]",
+                  !selectedHighlightDate && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="size-4" />
+                {selectedHighlightDate ? format(selectedHighlightDate, "PPP") : "Pick a date"}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedHighlightDate}
+                  onSelect={(date) => {
+                    if (!date) return;
+                    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                    setHighlightDate(utcDate.toISOString().slice(0, 10));
+                    setDatePickerOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
             <Textarea
               value={highlightNote}
               onChange={(event) => setHighlightNote(event.target.value)}

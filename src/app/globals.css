@@ -161,3 +161,52 @@ body {
   color: var(--foreground);
   min-height: 100vh;
 }
+
+/* Sonner hard theme overrides */
+[data-sonner-toaster] [data-sonner-toast] {
+  background: color-mix(in oklch, var(--background) 50%, transparent) !important;
+  color: var(--foreground) !important;
+  border: 1px solid color-mix(in oklch, var(--border) 82%, transparent) !important;
+  box-shadow: var(--shadow-xl) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-title] {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: color-mix(in oklch, var(--foreground) 84%, var(--background) 16%) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+  background: color-mix(in oklch, var(--background) 45%, transparent) !important;
+  color: var(--foreground) !important;
+  border: 1px solid color-mix(in oklch, var(--border) 88%, transparent) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button]:hover {
+  background: color-mix(in oklch, var(--accent) 36%, transparent) !important;
+  color: var(--foreground) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button] svg {
+  stroke: currentColor !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="success"] {
+  border-color: color-mix(in oklch, #10b981 58%, var(--border) 42%) !important;
+  background: color-mix(in oklch, #10b981 8%, transparent) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="error"] {
+  border-color: color-mix(in oklch, #ef4444 58%, var(--border) 42%) !important;
+  background: color-mix(in oklch, #ef4444 8%, transparent) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="default"] {
+  border-color: color-mix(in oklch, var(--primary) 56%, var(--border) 44%) !important;
+  background: color-mix(in oklch, var(--primary) 8%, transparent) !important;
+}

@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { createClientSupabase } from "@/lib/supabase/client";
-import { useDeleteAccountMutation, useDisconnectIntegrationMutation } from "@/lib/api/hooks";
 import { useAppToast } from "@/components/providers";
+import { Button } from "@/components/ui/button";
+import { useDeleteAccountMutation, useDisconnectIntegrationMutation } from "@/lib/api/hooks";
+import { createClientSupabase } from "@/lib/supabase/client";
 import { GitBranch, Github, LogOut, Trash2, Unplug } from "lucide-react";
 
 export function AccountControls() {
@@ -16,6 +16,7 @@ export function AccountControls() {
     await supabase.auth.signOut();
     window.location.href = "/";
   }
+        pushToast({ title: "Provider disconnected", subtitle: "test" }, "success");
 
   async function disconnect(provider: "GITLAB" | "AZURE_DEVOPS" | "GITHUB") {
     try {

@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { AlertCircle, CheckCircle2, Clock3, RefreshCw, XCircle } from "lucide-react";
+import { useAppToast } from "@/components/providers";
 import { Button } from "@/components/ui/button";
 import { useBackfillActionMutation } from "@/lib/api/hooks";
-import { useAppToast } from "@/components/providers";
 import { startSyncWatch } from "@/lib/sync-watch";
+import { AlertCircle, CheckCircle2, Clock3, Loader2, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export type BackfillJobRow = {
   id: string;
@@ -59,12 +59,12 @@ export function BackfillJobsPanel({ jobs }: Props) {
         <div className="mb-2 flex justify-end">
           <Button
             size="sm"
-            variant="outline"
+            variant="destructive"
             type="button"
             disabled={busyAction === "cleanup:all"}
             onClick={() => postForm("cleanup")}
           >
-            {busyAction === "cleanup:all" ? "Cleaning..." : "Clear completed"}
+            {busyAction === "cleanup:all" ? <span className="flex gap-1"><Loader2 className="size-4 animate-spin" /> Cleaning...</span> : <span className="flex gap-1"><Trash2 /> Clean completed</span>}
           </Button>
         </div>
       ) : null}
@@ -98,14 +98,22 @@ export function BackfillJobsPanel({ jobs }: Props) {
               </Button>
             ) : null}
             <Button
-              size="sm"
-              variant="ghost"
-              className="text-muted-foreground hover:text-foreground"
+              size="icon"
+              variant="destructive"
+              className="gap-1"
               type="button"
               disabled={busyAction === `delete:${job.id}`}
               onClick={() => postForm("delete", job.id)}
             >
-              Delete
+              {busyAction === `delete:${job.id}` ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-4" />
+                </>
+              )}
             </Button>
           </div>
         </div>
