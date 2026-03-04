@@ -171,6 +171,8 @@ export default async function DashboardPage({
         <MetricCard label="Pipelines" value={totals.pipelines} icon={<Workflow className="size-4" />} />
       </section>
 
+      <DashboardLiveUpdater />
+
       <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         <Card className="mb-6 border-border/60 shadow-sm transition-all hover:shadow-md">
           <CardHeader>
@@ -188,7 +190,6 @@ export default async function DashboardPage({
         </Card>
         <DashboardChart data={chartData} />
       </section>
-      <DashboardLiveUpdater />
 
       <DashboardPanelsClient
         initialShares={shares.map((share) => ({
