@@ -20,6 +20,56 @@ async function azureApiError(label: string, res: Response): Promise<Error> {
   return new Error(`${label} failed (${res.status} ${res.statusText})${bodyPreview ? `: ${bodyPreview}` : ""}`);
 }
 
+function pickString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const next = value.trim();
+  return next.length > 0 ? next : null;
+}
+
+function collectAzureIdentityCandidates(data: any): string[] {
+  const candidates: string[] = [];
+  const user = data?.authenticatedUser ?? {};
+  const props = user?.properties ?? {};
+
+  const push = (value: unknown) => {
+    const picked = pickString(value);
+    if (picked) candidates.push(picked);
+  };
+
+  push(user?.uniqueName);
+  push(user?.providerDisplayName);
+  push(user?.customDisplayName);
+
+  // Try common property keys where Azure may return account/email-like values.
+  const propertyKeys = ["Mail", "Email", "Account", "account", "SignInAddress", "IdentityType"];
+  for (const key of propertyKeys) {
+    const candidate = props?.[key];
+    push(candidate?.$value);
+    push(candidate?.value);
+    push(candidate);
+  }
+
+  return candidates;
+}
+
+async function fetchAzureIdentityAuthors(baseUrl: string, headers: Record<string, string>): Promise<string[]> {
+  try {
+    const url = new URL(`${baseUrl}/_apis/connectionData`);
+    url.searchParams.set("api-version", "7.1-preview.1");
+    url.searchParams.set("connectOptions", "1");
+    url.searchParams.set("lastChangeId", "-1");
+    url.searchParams.set("lastChangeId64", "-1");
+
+    const res = await fetchWithRetry(url.toString(), { headers, cache: "no-store" });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return collectAzureIdentityCandidates(data);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchAzureDailyMetrics(params: {
   token: string;
   organization: string;
@@ -51,7 +101,10 @@ export async function fetchAzureDailyMetrics(params: {
     };
   });
 
-  const authorEmails = Array.from(new Set([params.fallbackEmail, ...params.authorEmails]));
+  const identityCandidates = await fetchAzureIdentityAuthors(baseUrl, headers);
+  const authorEmails = Array.from(
+    new Set([params.fallbackEmail, ...params.authorEmails, ...identityCandidates].map((item) => item.trim().toLowerCase()).filter(Boolean)),
+  );
   const events: EventMetric[] = [];
 
   for (const project of projects) {

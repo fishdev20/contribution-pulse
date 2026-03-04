@@ -16,11 +16,13 @@ export default function SignInPage() {
     event.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
+    const authRedirectBase = process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL?.trim() || window.location.origin;
+    const emailRedirectTo = `${authRedirectBase.replace(/\/$/, "")}/auth/callback`;
     const supabase = createClientSupabase();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo,
       },
     });
 

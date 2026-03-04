@@ -14,6 +14,13 @@ export async function POST(request: Request) {
   }
 
   const encrypted = encryptSecret(token);
+  const existingAliases = await prisma.integration.findMany({
+    where: { userId: appUser.id },
+    select: { authorEmails: true },
+  });
+  const authorEmails = Array.from(
+    new Set(existingAliases.flatMap((item) => item.authorEmails).map((email) => email.trim().toLowerCase()).filter(Boolean)),
+  );
 
   await prisma.integration.upsert({
     where: {
@@ -26,6 +33,7 @@ export async function POST(request: Request) {
       tokenIv: encrypted.iv,
       tokenTag: encrypted.tag,
       gitlabBaseUrl: baseUrl,
+      authorEmails,
     },
     update: {
       encryptedToken: encrypted.ciphertext,
