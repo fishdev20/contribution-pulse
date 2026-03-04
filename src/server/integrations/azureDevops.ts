@@ -26,6 +26,10 @@ function pickString(value: unknown): string | null {
   return next.length > 0 ? next : null;
 }
 
+function isLikelyEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function collectAzureIdentityCandidates(data: any): string[] {
   const candidates: string[] = [];
   const user = data?.authenticatedUser ?? {};
@@ -37,11 +41,11 @@ function collectAzureIdentityCandidates(data: any): string[] {
   };
 
   push(user?.uniqueName);
-  push(user?.providerDisplayName);
-  push(user?.customDisplayName);
+  // Display names are often not valid commit-author identifiers for Azure search,
+  // and can explode query volume if used as author filter.
 
   // Try common property keys where Azure may return account/email-like values.
-  const propertyKeys = ["Mail", "Email", "Account", "account", "SignInAddress", "IdentityType"];
+  const propertyKeys = ["Mail", "Email", "Account", "account", "SignInAddress"];
   for (const key of propertyKeys) {
     const candidate = props?.[key];
     push(candidate?.$value);
@@ -49,7 +53,9 @@ function collectAzureIdentityCandidates(data: any): string[] {
     push(candidate);
   }
 
-  return candidates;
+  return candidates
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => isLikelyEmail(item));
 }
 
 async function fetchAzureIdentityAuthors(baseUrl: string, headers: Record<string, string>): Promise<string[]> {
@@ -103,7 +109,11 @@ export async function fetchAzureDailyMetrics(params: {
 
   const identityCandidates = await fetchAzureIdentityAuthors(baseUrl, headers);
   const authorEmails = Array.from(
-    new Set([params.fallbackEmail, ...params.authorEmails, ...identityCandidates].map((item) => item.trim().toLowerCase()).filter(Boolean)),
+    new Set(
+      [params.fallbackEmail, ...params.authorEmails, ...identityCandidates]
+        .map((item) => item.trim().toLowerCase())
+        .filter((item) => isLikelyEmail(item)),
+    ),
   );
   const events: EventMetric[] = [];
 

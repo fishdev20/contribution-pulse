@@ -42,6 +42,37 @@ const SyncJobStatus = {
   FAILED: "FAILED",
 } as const;
 
+function buildDefaultSyncWindow(lastSyncedAt?: Date | null): { from: Date; to: Date } {
+  const now = new Date();
+  if (!lastSyncedAt) {
+    const from = new Date(now);
+    from.setUTCDate(from.getUTCDate() - 90);
+    return { from, to: now };
+  }
+
+  const from = new Date(lastSyncedAt);
+  from.setUTCDate(from.getUTCDate() - 1);
+  return { from, to: now };
+}
+
+function splitDateRangeIntoChunks(from: Date, to: Date, chunkDays: number): Array<{ from: Date; to: Date }> {
+  if (from > to) return [];
+  const chunks: Array<{ from: Date; to: Date }> = [];
+  let cursor = new Date(from);
+
+  while (cursor <= to) {
+    const chunkStart = new Date(cursor);
+    const chunkEnd = new Date(cursor);
+    chunkEnd.setUTCDate(chunkEnd.getUTCDate() + chunkDays - 1);
+    if (chunkEnd > to) chunkEnd.setTime(to.getTime());
+    chunks.push({ from: chunkStart, to: chunkEnd });
+    cursor = new Date(chunkEnd);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return chunks;
+}
+
 function isBackfillJob(jobData: unknown): jobData is { userId: string; options: SyncJobOptions } {
   if (!jobData || typeof jobData !== "object") return false;
   const candidate = jobData as { userId?: unknown; options?: SyncJobOptions };
@@ -50,33 +81,15 @@ function isBackfillJob(jobData: unknown): jobData is { userId: string; options: 
 
 export async function enqueueUserSync(userId: string, options?: SyncJobOptions) {
   if (backend === "supabase") {
-    if (options?.provider) {
-      await (prisma as any).syncJob.create({
-        data: {
-          userId,
-          provider: options.provider,
-          from: options?.from ? new Date(options.from) : null,
-          to: options?.to ? new Date(options.to) : null,
-          backfillYear: options?.backfillYear ?? null,
-          status: SyncJobStatus.QUEUED,
-        },
-      });
-      return;
-    }
-
-    // Fan out "all providers" into one job per connected integration provider to keep
-    // each serverless execution small enough for runtime limits.
     const integrations = await prisma.integration.findMany({
-      where: { userId },
-      select: { provider: true },
+      where: options?.provider ? { userId, provider: options.provider } : { userId },
+      select: { provider: true, lastSyncedAt: true },
     });
-    const providers = Array.from(new Set(integrations.map((item) => item.provider)));
-
-    if (providers.length === 0) {
+    if (integrations.length === 0) {
       await (prisma as any).syncJob.create({
         data: {
           userId,
-          provider: null,
+          provider: options?.provider ?? null,
           from: options?.from ? new Date(options.from) : null,
           to: options?.to ? new Date(options.to) : null,
           backfillYear: options?.backfillYear ?? null,
@@ -85,17 +98,48 @@ export async function enqueueUserSync(userId: string, options?: SyncJobOptions) 
       });
       return;
     }
+    const rows: Array<{
+      userId: string;
+      provider: SyncProvider;
+      from: Date | null;
+      to: Date | null;
+      backfillYear: number | null;
+      status: keyof typeof SyncJobStatus;
+    }> = [];
 
-    await (prisma as any).syncJob.createMany({
-      data: providers.map((provider) => ({
+    for (const integration of integrations) {
+      // Azure sync tends to exceed serverless runtime for larger orgs.
+      // Split it into smaller date chunks so each process run stays short.
+      if (integration.provider === "AZURE_DEVOPS") {
+        const window =
+          options?.from && options?.to
+            ? { from: new Date(options.from), to: new Date(options.to) }
+            : buildDefaultSyncWindow(integration.lastSyncedAt);
+        const chunks = splitDateRangeIntoChunks(window.from, window.to, 14);
+        for (const chunk of chunks) {
+          rows.push({
+            userId,
+            provider: integration.provider,
+            from: chunk.from,
+            to: chunk.to,
+            backfillYear: options?.backfillYear ?? null,
+            status: SyncJobStatus.QUEUED,
+          });
+        }
+        continue;
+      }
+
+      rows.push({
         userId,
-        provider,
+        provider: integration.provider,
         from: options?.from ? new Date(options.from) : null,
         to: options?.to ? new Date(options.to) : null,
         backfillYear: options?.backfillYear ?? null,
         status: SyncJobStatus.QUEUED,
-      })),
-    });
+      });
+    }
+
+    await (prisma as any).syncJob.createMany({ data: rows });
     return;
   }
 
