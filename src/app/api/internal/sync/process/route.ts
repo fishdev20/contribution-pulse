@@ -4,6 +4,7 @@ import { processSupabaseSyncQueue } from "@/server/queue/supabase-processor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function isAuthorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -24,8 +25,9 @@ export async function POST(request: Request) {
   }
 
   const url = new URL(request.url);
-  const limit = Number(url.searchParams.get("limit") ?? "5");
-  const result = await processSupabaseSyncQueue(Number.isFinite(limit) ? limit : 5);
+  const limit = Number(url.searchParams.get("limit") ?? "1");
+  const boundedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(3, limit)) : 1;
+  const result = await processSupabaseSyncQueue(boundedLimit);
 
   return NextResponse.json({ ok: true, ...result });
 }

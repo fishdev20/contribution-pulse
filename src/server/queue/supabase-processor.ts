@@ -4,6 +4,7 @@ import { publishSyncEvent } from "@/server/queue/sync-events";
 import { syncUserContributions } from "@/server/sync/syncService";
 
 const MAX_BATCH_SIZE = 20;
+const STALE_RUNNING_MS = 10 * 60 * 1000;
 const SyncJobStatus = {
   QUEUED: "QUEUED",
   RUNNING: "RUNNING",
@@ -18,6 +19,26 @@ function toBackoffMs(attemptCount: number): number {
 export async function processSupabaseSyncQueue(limit = 5): Promise<{ picked: number; completed: number; failed: number }> {
   const batchSize = Math.max(1, Math.min(MAX_BATCH_SIZE, limit));
   const now = new Date();
+
+  // Recover jobs left RUNNING when a serverless execution is interrupted (timeout/redeploy/crash).
+  const staleBefore = new Date(Date.now() - STALE_RUNNING_MS);
+  const recovered = await (prisma as any).syncJob.updateMany({
+    where: {
+      status: SyncJobStatus.RUNNING,
+      OR: [{ lockedAt: { lte: staleBefore } }, { lockedAt: null, startedAt: { lte: staleBefore } }],
+    },
+    data: {
+      status: SyncJobStatus.QUEUED,
+      availableAt: now,
+      lockedAt: null,
+      startedAt: null,
+      errorMessage: "Recovered stale RUNNING lock after processor interruption.",
+    },
+  });
+  if (recovered.count > 0) {
+    safeLog("warn", "Recovered stale supabase sync jobs", { count: recovered.count });
+  }
+
   const candidates = await (prisma as any).syncJob.findMany({
     where: {
       status: SyncJobStatus.QUEUED,
