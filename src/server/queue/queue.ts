@@ -50,15 +50,51 @@ function isBackfillJob(jobData: unknown): jobData is { userId: string; options: 
 
 export async function enqueueUserSync(userId: string, options?: SyncJobOptions) {
   if (backend === "supabase") {
-    await (prisma as any).syncJob.create({
-      data: {
+    if (options?.provider) {
+      await (prisma as any).syncJob.create({
+        data: {
+          userId,
+          provider: options.provider,
+          from: options?.from ? new Date(options.from) : null,
+          to: options?.to ? new Date(options.to) : null,
+          backfillYear: options?.backfillYear ?? null,
+          status: SyncJobStatus.QUEUED,
+        },
+      });
+      return;
+    }
+
+    // Fan out "all providers" into one job per connected integration provider to keep
+    // each serverless execution small enough for runtime limits.
+    const integrations = await prisma.integration.findMany({
+      where: { userId },
+      select: { provider: true },
+    });
+    const providers = Array.from(new Set(integrations.map((item) => item.provider)));
+
+    if (providers.length === 0) {
+      await (prisma as any).syncJob.create({
+        data: {
+          userId,
+          provider: null,
+          from: options?.from ? new Date(options.from) : null,
+          to: options?.to ? new Date(options.to) : null,
+          backfillYear: options?.backfillYear ?? null,
+          status: SyncJobStatus.QUEUED,
+        },
+      });
+      return;
+    }
+
+    await (prisma as any).syncJob.createMany({
+      data: providers.map((provider) => ({
         userId,
-        provider: options?.provider,
+        provider,
         from: options?.from ? new Date(options.from) : null,
         to: options?.to ? new Date(options.to) : null,
         backfillYear: options?.backfillYear ?? null,
         status: SyncJobStatus.QUEUED,
-      },
+      })),
     });
     return;
   }
