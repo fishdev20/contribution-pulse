@@ -149,7 +149,6 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-6 mx-auto max-w-6xl">
-      <DashboardLiveUpdater />
       <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-row flex-wrap items-center justify-between gap-3 duration-500">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight"><ChartBar className="h-7 w-7 text-primary" />Contribution dashboard</h1>
@@ -189,6 +188,7 @@ export default async function DashboardPage({
         </Card>
         <DashboardChart data={chartData} />
       </section>
+      <DashboardLiveUpdater />
 
       <DashboardPanelsClient
         initialShares={shares.map((share) => ({
