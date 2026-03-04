@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppToast } from "@/components/providers";
 import { clearSyncWatch, getSyncWatchStartedAt, isSyncWatchActive } from "@/lib/sync-watch";
 
@@ -15,6 +15,9 @@ type SyncEventPayload = {
 
 type SyncStatusPayload = {
   activeJobCount?: number;
+  totalJobCount?: number;
+  finishedJobCount?: number;
+  progressPercent?: number | null;
   latestJobStatus?: "COMPLETED" | "FAILED" | null;
   latestJobFinishedAt?: string | null;
 };
@@ -27,6 +30,7 @@ export function DashboardLiveUpdater() {
   const latestTerminalRef = useRef<string | null>(null);
   const latestRefreshedTerminalRef = useRef<string | null>(null);
   const NO_ACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
+  const [progress, setProgress] = useState<{ percent: number; finished: number; total: number } | null>(null);
 
   useEffect(() => {
     const source = new EventSource("/api/sync/events");
@@ -79,11 +83,26 @@ export function DashboardLiveUpdater() {
     const pollId = setInterval(async () => {
       if (!isSyncWatchActive()) return;
       try {
-        const response = await fetch("/api/sync/status", { cache: "no-store" });
+        const watchStartedAt = getSyncWatchStartedAt();
+        const query = watchStartedAt ? `?since=${encodeURIComponent(new Date(watchStartedAt).toISOString())}` : "";
+        const response = await fetch(`/api/sync/status${query}`, { cache: "no-store" });
         if (!response.ok) return;
         const status = (await response.json()) as SyncStatusPayload;
-        const watchStartedAt = getSyncWatchStartedAt();
         const activeJobCount = Number(status.activeJobCount ?? 0);
+        const total = Number(status.totalJobCount ?? 0);
+        const finished = Number(status.finishedJobCount ?? 0);
+        const percent = Number.isFinite(Number(status.progressPercent))
+          ? Number(status.progressPercent ?? 0)
+          : total > 0
+            ? Math.round((finished / total) * 100)
+            : 0;
+        if (isSyncWatchActive()) {
+          setProgress({
+            percent: Math.max(0, Math.min(100, percent)),
+            finished: Math.max(0, finished),
+            total: Math.max(0, total),
+          });
+        }
         const terminalTime = status.latestJobFinishedAt ? Date.parse(status.latestJobFinishedAt) : NaN;
         const terminalKey = status.latestJobFinishedAt ? `${status.latestJobStatus ?? "UNKNOWN"}:${status.latestJobFinishedAt}` : null;
         const isFromCurrentWatch =
@@ -134,6 +153,7 @@ export function DashboardLiveUpdater() {
           clearSyncWatch();
           hasAnnouncedStart.current = false;
           latestRefreshedTerminalRef.current = null;
+          setProgress(null);
           router.refresh();
           return;
         }
@@ -144,6 +164,7 @@ export function DashboardLiveUpdater() {
           clearSyncWatch();
           hasAnnouncedStart.current = false;
           latestRefreshedTerminalRef.current = null;
+          setProgress(null);
         }
       } catch {
         // ignore polling errors
@@ -156,5 +177,19 @@ export function DashboardLiveUpdater() {
     };
   }, [pushToast, router]);
 
-  return null;
+  if (!progress || !isSyncWatchActive()) return null;
+
+  return (
+    <div className="animate-in fade-in slide-in-from-top-1 rounded-lg border border-border/60 bg-card/70 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+        <p className="font-medium">Sync progress</p>
+        <p className="text-muted-foreground">
+          {progress.total > 0 ? `${progress.finished}/${progress.total}` : "Preparing..."} • {progress.percent}%
+        </p>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progress.percent}%` }} />
+      </div>
+    </div>
+  );
 }

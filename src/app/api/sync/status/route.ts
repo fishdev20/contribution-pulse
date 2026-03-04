@@ -3,8 +3,17 @@ import { requireAppUser } from "@/server/auth/user";
 import { prisma } from "@/server/db/prisma";
 import { getQueueBackend } from "@/server/queue/queue";
 
-export async function GET() {
+function parseSinceParam(request: Request): Date | null {
+  const url = new URL(request.url);
+  const since = url.searchParams.get("since");
+  if (!since) return null;
+  const parsed = new Date(since);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export async function GET(request: Request) {
   const { appUser } = await requireAppUser();
+  const since = parseSinceParam(request);
   const integrations = await prisma.integration.findMany({
     where: { userId: appUser.id },
     select: { syncState: true, lastSyncedAt: true },
@@ -19,19 +28,25 @@ export async function GET() {
     .at(-1) ?? null;
 
   if (getQueueBackend() === "supabase") {
-    const [queuedJobCount, runningJobCount, failedJobCount, latestTerminal] = await Promise.all([
+    const whereBase: any = { userId: appUser.id };
+    if (since) whereBase.createdAt = { gte: since };
+
+    const [queuedJobCount, runningJobCount, failedJobCount, completedJobCount, latestTerminal] = await Promise.all([
       (prisma as any).syncJob.count({
-        where: { userId: appUser.id, status: "QUEUED" },
+        where: { ...whereBase, status: "QUEUED" },
       }),
       (prisma as any).syncJob.count({
-        where: { userId: appUser.id, status: "RUNNING" },
+        where: { ...whereBase, status: "RUNNING" },
       }),
       (prisma as any).syncJob.count({
-        where: { userId: appUser.id, status: "FAILED" },
+        where: { ...whereBase, status: "FAILED" },
+      }),
+      (prisma as any).syncJob.count({
+        where: { ...whereBase, status: "COMPLETED" },
       }),
       (prisma as any).syncJob.findFirst({
         where: {
-          userId: appUser.id,
+          ...whereBase,
           status: { in: ["COMPLETED", "FAILED"] },
           finishedAt: { not: null },
         },
@@ -39,6 +54,10 @@ export async function GET() {
         select: { status: true, finishedAt: true },
       }),
     ]);
+    const activeJobCount = queuedJobCount + runningJobCount;
+    const totalJobCount = queuedJobCount + runningJobCount + failedJobCount + completedJobCount;
+    const finishedJobCount = failedJobCount + completedJobCount;
+    const progressPercent = totalJobCount > 0 ? Math.round((finishedJobCount / totalJobCount) * 100) : null;
 
     return NextResponse.json({
       runningCount,
@@ -47,7 +66,11 @@ export async function GET() {
       queuedJobCount,
       runningJobCount,
       failedJobCount,
-      activeJobCount: queuedJobCount + runningJobCount,
+      completedJobCount,
+      activeJobCount,
+      totalJobCount,
+      finishedJobCount,
+      progressPercent,
       latestJobStatus: latestTerminal?.status ?? null,
       latestJobFinishedAt: latestTerminal?.finishedAt?.toISOString() ?? null,
     });
@@ -60,7 +83,11 @@ export async function GET() {
     queuedJobCount: 0,
     runningJobCount: 0,
     failedJobCount: 0,
+    completedJobCount: 0,
     activeJobCount: runningCount,
+    totalJobCount: 0,
+    finishedJobCount: 0,
+    progressPercent: null,
     latestJobStatus: null,
     latestJobFinishedAt: null,
   });
