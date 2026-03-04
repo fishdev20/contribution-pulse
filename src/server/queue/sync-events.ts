@@ -1,5 +1,6 @@
 import IORedis from "ioredis";
 import { safeLog } from "@/server/crypto/logging";
+import { getQueueBackend } from "@/server/queue/queue";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 const CHANNEL_PREFIX = "pow:sync-events:user:";
@@ -20,6 +21,8 @@ function getChannel(userId: string): string {
 }
 
 export async function publishSyncEvent(payload: Omit<SyncEventPayload, "timestamp">): Promise<void> {
+  if (getQueueBackend() === "supabase") return;
+
   const publisher = new IORedis(REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAppUser } from "@/server/auth/user";
+import { getQueueBackend } from "@/server/queue/queue";
 import { createSyncEventSubscriber, getSyncEventsChannelForUser } from "@/server/queue/sync-events";
 
 export const runtime = "nodejs";
@@ -14,13 +15,26 @@ function encodeSse(data: unknown, event?: string): Uint8Array {
 export async function GET(request: Request) {
   const { appUser } = await requireAppUser();
   const channel = getSyncEventsChannelForUser(appUser.id);
+  const backend = getQueueBackend();
 
   let cleanupRef: (() => Promise<void>) | null = null;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const subscriber = createSyncEventSubscriber();
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+      if (backend === "supabase") {
+        controller.enqueue(encodeSse({ ok: true, connected: true, mode: "supabase", timestamp: new Date().toISOString() }, "connected"));
+        heartbeatTimer = setInterval(() => {
+          controller.enqueue(encodeSse({ t: Date.now() }, "ping"));
+        }, 20000);
+        cleanupRef = async () => {
+          if (heartbeatTimer) clearInterval(heartbeatTimer);
+        };
+        return;
+      }
+
+      const subscriber = createSyncEventSubscriber();
 
       const onMessage = (incomingChannel: string, message: string) => {
         if (incomingChannel !== channel) return;

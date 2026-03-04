@@ -7,13 +7,16 @@ export type SyncProvider = "GITLAB" | "AZURE_DEVOPS" | "GITHUB";
 export type QueueBackend = "bull" | "supabase";
 
 const backend: QueueBackend = process.env.SYNC_QUEUE_BACKEND === "supabase" ? "supabase" : "bull";
-
-const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
-
-export const syncQueue = new Queue("contribution-sync", { connection });
+let queueInstance: Queue | null = null;
+function getSyncQueue(): Queue {
+  if (queueInstance) return queueInstance;
+  const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  });
+  queueInstance = new Queue("contribution-sync", { connection });
+  return queueInstance;
+}
 
 export type SyncJobOptions = {
   from?: string;
@@ -60,7 +63,7 @@ export async function enqueueUserSync(userId: string, options?: SyncJobOptions) 
     return;
   }
 
-  await syncQueue.add("sync-user", { userId, options }, { attempts: 3, backoff: { type: "exponential", delay: 1000 } });
+  await getSyncQueue().add("sync-user", { userId, options }, { attempts: 3, backoff: { type: "exponential", delay: 1000 } });
 }
 
 export async function scheduleNightlySync() {
@@ -69,7 +72,7 @@ export async function scheduleNightlySync() {
     return;
   }
 
-  await syncQueue.add(
+  await getSyncQueue().add(
     "nightly-sync",
     {},
     {
@@ -99,7 +102,7 @@ export async function listBackfillJobsForUser(userId: string, limit = 8): Promis
   }
 
   try {
-    const jobs = await syncQueue.getJobs(["waiting", "active", "completed", "failed", "delayed"], 0, 200);
+    const jobs = await getSyncQueue().getJobs(["waiting", "active", "completed", "failed", "delayed"], 0, 200);
     const collected: BackfillJobView[] = [];
 
     for (const job of jobs) {
@@ -145,7 +148,7 @@ export async function retryBackfillJobForUser(userId: string, jobId: string): Pr
   }
 
   try {
-    const job = await syncQueue.getJob(jobId);
+    const job = await getSyncQueue().getJob(jobId);
     if (!job || job.name !== "sync-user" || !isBackfillJob(job.data) || job.data.userId !== userId) {
       return { ok: false };
     }
@@ -177,7 +180,7 @@ export async function removeBackfillJobForUser(userId: string, jobId: string): P
   }
 
   try {
-    const job = await syncQueue.getJob(jobId);
+    const job = await getSyncQueue().getJob(jobId);
     if (!job || job.name !== "sync-user" || !isBackfillJob(job.data) || job.data.userId !== userId) {
       return { ok: false };
     }
@@ -198,7 +201,7 @@ export async function removeCompletedBackfillJobsForUser(userId: string): Promis
   }
 
   try {
-    const jobs = await syncQueue.getJobs(["completed"], 0, 300);
+    const jobs = await getSyncQueue().getJobs(["completed"], 0, 300);
     let removed = 0;
 
     for (const job of jobs) {
