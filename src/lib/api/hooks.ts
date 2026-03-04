@@ -45,7 +45,8 @@ export function useUpsertIntegrationMutation(provider: "gitlab" | "azure-devops"
 
 export function useSaveAuthorEmailsMutation() {
   return useMutation({
-    mutationFn: (emails: string) => apiPostForm<{ ok: boolean }>("/api/onboarding/author-emails", { emails }),
+    mutationFn: (payload: { emails: string; provider?: "GITLAB" | "AZURE_DEVOPS" | "GITHUB" }) =>
+      apiPostForm<{ ok: boolean }>("/api/onboarding/author-emails", payload.provider ? payload : { emails: payload.emails }),
   });
 }
 

@@ -30,7 +30,6 @@ export async function fetchGithubDailyMetrics(params: {
   token: string;
   from: Date;
   to: Date;
-  authorEmails: string[];
 }): Promise<EventMetric[]> {
   const headers = {
     Authorization: `Bearer ${params.token}`,
@@ -42,8 +41,8 @@ export async function fetchGithubDailyMetrics(params: {
   const userRes = await fetchWithRetry("https://api.github.com/user", { headers, cache: "no-store" });
   if (!userRes.ok) throw await githubApiError("GitHub user API", userRes);
   const user = (await userRes.json()) as GithubUser;
-  // GitHub commit filtering is most reliable by login; optional custom emails can be added by user.
-  const authorQueries = Array.from(new Set([user.login, ...params.authorEmails].filter(Boolean)));
+  // PAT-consistent matching: use authenticated GitHub login only.
+  const authorQueries = [user.login].filter(Boolean);
 
   const repos = await paginateByPage<GithubRepo>(async (page) => {
     const url = new URL("https://api.github.com/user/repos");

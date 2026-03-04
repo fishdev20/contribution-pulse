@@ -59,7 +59,7 @@ export default async function DashboardPage({
     }),
     prisma.manualHighlight.findMany({ where: { userId: appUser.id }, orderBy: { date: "desc" }, take: 20 }),
     prisma.publicShare.findMany({ where: { userId: appUser.id }, orderBy: { createdAt: "desc" }, take: 5 }),
-    listBackfillJobsForUser(appUser.id, 8),
+    listBackfillJobsForUser(appUser.id, 120),
   ]);
   const activities = activitiesRaw as ActivityRow[];
   const highlights = highlightsRaw as ManualHighlightRow[];

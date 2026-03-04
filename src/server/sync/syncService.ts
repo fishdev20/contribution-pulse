@@ -61,15 +61,12 @@ export async function syncUserContributions(userId: string, options?: SyncJobOpt
           organization: integration.azureOrg,
           from,
           to,
-          authorEmails: integration.authorEmails,
-          fallbackEmail: user.email,
         });
       } else {
         events = await fetchGithubDailyMetrics({
           token,
           from,
           to,
-          authorEmails: integration.authorEmails,
         });
       }
 

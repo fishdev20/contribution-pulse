@@ -25,6 +25,8 @@ export function DashboardLiveUpdater() {
   const latestEventKey = useRef<string | null>(null);
   const hasAnnouncedStart = useRef(false);
   const latestTerminalRef = useRef<string | null>(null);
+  const latestRefreshedTerminalRef = useRef<string | null>(null);
+  const NO_ACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
 
   useEffect(() => {
     const source = new EventSource("/api/sync/events");
@@ -82,6 +84,11 @@ export function DashboardLiveUpdater() {
         const status = (await response.json()) as SyncStatusPayload;
         const watchStartedAt = getSyncWatchStartedAt();
         const activeJobCount = Number(status.activeJobCount ?? 0);
+        const terminalTime = status.latestJobFinishedAt ? Date.parse(status.latestJobFinishedAt) : NaN;
+        const terminalKey = status.latestJobFinishedAt ? `${status.latestJobStatus ?? "UNKNOWN"}:${status.latestJobFinishedAt}` : null;
+        const isFromCurrentWatch =
+          Number.isFinite(terminalTime) && watchStartedAt !== null ? terminalTime >= watchStartedAt : false;
+        const hasTerminalForCurrentWatch = Boolean(terminalKey && isFromCurrentWatch);
 
         if (activeJobCount > 0 && !hasAnnouncedStart.current) {
           hasAnnouncedStart.current = true;
@@ -95,12 +102,14 @@ export function DashboardLiveUpdater() {
           return;
         }
 
-        if (activeJobCount === 0 && hasAnnouncedStart.current) {
-          const terminalTime = status.latestJobFinishedAt ? Date.parse(status.latestJobFinishedAt) : NaN;
-          const terminalKey = status.latestJobFinishedAt ? `${status.latestJobStatus ?? "UNKNOWN"}:${status.latestJobFinishedAt}` : null;
-          const isFromCurrentWatch =
-            Number.isFinite(terminalTime) && watchStartedAt !== null ? terminalTime >= watchStartedAt : false;
+        // Incremental refresh: when a new chunk/job reaches terminal state for the current
+        // watch window, refresh dashboard so newly aggregated days appear immediately.
+        if (hasTerminalForCurrentWatch && terminalKey && latestRefreshedTerminalRef.current !== terminalKey) {
+          latestRefreshedTerminalRef.current = terminalKey;
+          router.refresh();
+        }
 
+        if (activeJobCount === 0 && hasTerminalForCurrentWatch) {
           if (terminalKey && latestTerminalRef.current !== terminalKey && isFromCurrentWatch) {
             latestTerminalRef.current = terminalKey;
             if (status.latestJobStatus === "FAILED") {
@@ -124,7 +133,17 @@ export function DashboardLiveUpdater() {
 
           clearSyncWatch();
           hasAnnouncedStart.current = false;
+          latestRefreshedTerminalRef.current = null;
           router.refresh();
+          return;
+        }
+
+        // Safety valve: if no active jobs are observed for a long time and no terminal
+        // event can be associated to this watch window, stop polling loop.
+        if (activeJobCount === 0 && watchStartedAt && Date.now() - watchStartedAt > NO_ACTIVITY_TIMEOUT_MS) {
+          clearSyncWatch();
+          hasAnnouncedStart.current = false;
+          latestRefreshedTerminalRef.current = null;
         }
       } catch {
         // ignore polling errors

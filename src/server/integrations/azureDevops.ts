@@ -81,8 +81,6 @@ export async function fetchAzureDailyMetrics(params: {
   organization: string;
   from: Date;
   to: Date;
-  authorEmails: string[];
-  fallbackEmail: string;
 }): Promise<EventMetric[]> {
   const org = params.organization;
   const baseUrl = `https://dev.azure.com/${encodeURIComponent(org)}`;
@@ -108,13 +106,8 @@ export async function fetchAzureDailyMetrics(params: {
   });
 
   const identityCandidates = await fetchAzureIdentityAuthors(baseUrl, headers);
-  const authorEmails = Array.from(
-    new Set(
-      [params.fallbackEmail, ...params.authorEmails, ...identityCandidates]
-        .map((item) => item.trim().toLowerCase())
-        .filter((item) => isLikelyEmail(item)),
-    ),
-  );
+  // PAT-consistent matching: use Azure identity derived from authenticated PAT only.
+  const authorEmails = Array.from(new Set(identityCandidates));
   const events: EventMetric[] = [];
 
   for (const project of projects) {

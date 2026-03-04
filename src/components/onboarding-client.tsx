@@ -14,6 +14,24 @@ type IntegrationView = {
   authorEmails: string[];
 };
 
+type Provider = IntegrationView["provider"];
+
+function getInitialProviderEmails(list: IntegrationView[], provider: Provider): string {
+  const row = list.find((item) => item.provider === provider);
+  return row?.authorEmails.join(",") ?? "";
+}
+
+function parseEmails(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(",")
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
 export function OnboardingClient({ initialIntegrations }: { initialIntegrations: IntegrationView[] }) {
   const { pushToast } = useAppToast();
   const gitlabMutation = useUpsertIntegrationMutation("gitlab");
@@ -27,7 +45,9 @@ export function OnboardingClient({ initialIntegrations }: { initialIntegrations:
   const [azureToken, setAzureToken] = useState("");
   const [azureOrg, setAzureOrg] = useState("");
   const [githubToken, setGithubToken] = useState("");
-  const [emails, setEmails] = useState(initialIntegrations.flatMap((item) => item.authorEmails).join(","));
+  const [gitlabEmails, setGitlabEmails] = useState(getInitialProviderEmails(initialIntegrations, "GITLAB"));
+  const [azureEmails, setAzureEmails] = useState(getInitialProviderEmails(initialIntegrations, "AZURE_DEVOPS"));
+  const [githubEmails, setGithubEmails] = useState(getInitialProviderEmails(initialIntegrations, "GITHUB"));
 
   const gitlab = integrations.find((i) => i.provider === "GITLAB");
   const azdo = integrations.find((i) => i.provider === "AZURE_DEVOPS");
@@ -86,11 +106,14 @@ export function OnboardingClient({ initialIntegrations }: { initialIntegrations:
     }
   }
 
-  async function saveEmails(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveProviderEmails(provider: Provider, raw: string) {
+    const parsed = parseEmails(raw);
     try {
-      await authorEmailsMutation.mutateAsync(emails);
-      pushToast({ title: "Author emails saved", subtitle: "Commit matching aliases updated." }, "success");
+      await authorEmailsMutation.mutateAsync({ emails: raw, provider });
+      setIntegrations((prev) =>
+        prev.map((item) => (item.provider === provider ? { ...item, authorEmails: parsed } : item)),
+      );
+      pushToast({ title: "Author emails saved", subtitle: `${formatProvider(provider)} commit aliases updated.` }, "success");
     } catch {
       pushToast({ title: "Save failed", subtitle: "Could not save author emails." }, "error");
     }
@@ -250,21 +273,72 @@ export function OnboardingClient({ initialIntegrations }: { initialIntegrations:
         <div>
           <h2 className="flex items-center gap-2 text-xl font-semibold">
             <AtSign className="h-5 w-5 text-primary" />
-            Optional author emails
+            Author emails by provider
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">Comma-separated emails used for commit matching across providers.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Set provider-specific commit author aliases (comma-separated).</p>
         </div>
-        <form onSubmit={saveEmails} className="grid gap-3 sm:max-w-2xl">
-          <Input
-            value={emails}
-            onChange={(event) => setEmails(event.target.value)}
-            placeholder="alias@company.com, alt@company.com"
-          />
-          <Button className="inline-flex w-fit items-center gap-2" type="submit">
-            <BadgeCheck className="h-4 w-4" />
-            Save author emails
-          </Button>
-        </form>
+        <div className="grid gap-4 md:grid-cols-2">
+          {gitlab ? (
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await saveProviderEmails("GITLAB", gitlabEmails);
+              }}
+              className="rounded-lg border border-border/60 p-4"
+            >
+              <p className="mb-2 text-sm font-medium">GitLab author aliases</p>
+              <Input
+                value={gitlabEmails}
+                onChange={(event) => setGitlabEmails(event.target.value)}
+                placeholder="alias@company.com, alt@company.com"
+              />
+              <Button className="mt-3 inline-flex w-fit items-center gap-2" type="submit">
+                <BadgeCheck className="h-4 w-4" />
+                Save GitLab emails
+              </Button>
+            </form>
+          ) : null}
+          {azdo ? (
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await saveProviderEmails("AZURE_DEVOPS", azureEmails);
+              }}
+              className="rounded-lg border border-border/60 p-4"
+            >
+              <p className="mb-2 text-sm font-medium">Azure DevOps author aliases</p>
+              <Input
+                value={azureEmails}
+                onChange={(event) => setAzureEmails(event.target.value)}
+                placeholder="alias@company.com, alt@company.com"
+              />
+              <Button className="mt-3 inline-flex w-fit items-center gap-2" type="submit">
+                <BadgeCheck className="h-4 w-4" />
+                Save Azure emails
+              </Button>
+            </form>
+          ) : null}
+          {github ? (
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await saveProviderEmails("GITHUB", githubEmails);
+              }}
+              className="rounded-lg border border-border/60 p-4"
+            >
+              <p className="mb-2 text-sm font-medium">GitHub author aliases</p>
+              <Input
+                value={githubEmails}
+                onChange={(event) => setGithubEmails(event.target.value)}
+                placeholder="alias@company.com, alt@company.com"
+              />
+              <Button className="mt-3 inline-flex w-fit items-center gap-2" type="submit">
+                <BadgeCheck className="h-4 w-4" />
+                Save GitHub emails
+              </Button>
+            </form>
+          ) : null}
+        </div>
       </section>
     </div>
   );
@@ -308,4 +382,10 @@ function ProviderCard({
 function upsertIntegration(list: IntegrationView[], incoming: IntegrationView) {
   const next = list.filter((item) => item.provider !== incoming.provider);
   return [...next, incoming];
+}
+
+function formatProvider(provider: Provider): string {
+  if (provider === "GITLAB") return "GitLab";
+  if (provider === "AZURE_DEVOPS") return "Azure DevOps";
+  return "GitHub";
 }
