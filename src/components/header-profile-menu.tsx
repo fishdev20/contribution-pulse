@@ -1,10 +1,12 @@
 "use client";
 
+import { useMeQuery } from "@/lib/api/hooks";
+import { createClientSupabase } from "@/lib/supabase/client";
+import { Loader2, LogOut, Settings, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createClientSupabase } from "@/lib/supabase/client";
-import { useMeQuery } from "@/lib/api/hooks";
-import { LogOut, Settings, Wrench } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
 
 export function HeaderProfileMenu() {
   const [open, setOpen] = useState(false);
@@ -23,7 +25,10 @@ export function HeaderProfileMenu() {
 
   const initials = useMemo(() => {
     if (!me || !me.authenticated || !me.email) return "U";
-    return me.email.slice(0, 1).toUpperCase();
+    const namePart = me.email.split("@")[0] ?? "";
+    const parts = namePart.split(/[._-\s]+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+    return namePart.slice(0, 2).toUpperCase() || "U";
   }, [me]);
 
   async function signOut() {
@@ -34,7 +39,9 @@ export function HeaderProfileMenu() {
 
   if (isLoading || !me) {
     return (
-      <div className="h-9 w-9 animate-pulse rounded-full border border-border/60 bg-muted" aria-hidden="true" />
+      <Button size="icon" variant="outline" className="rounded-full" disabled aria-label="Loading profile">
+        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+      </Button>
     );
   }
 
@@ -51,18 +58,18 @@ export function HeaderProfileMenu() {
 
   return (
     <div className="relative" ref={wrapperRef}>
-      <button
-        type="button"
+      <Button
+        size={"icon"}
+        variant={"outline"}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-background hover:bg-accent"
+        className="rounded-full p-0"
         aria-label="Open profile menu"
       >
-        {me.avatarUrl ? (
-          <img src={me.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
-        ) : (
-          <span className="text-xs font-semibold text-muted-foreground">{initials}</span>
-        )}
-      </button>
+        <Avatar className="size-8">
+          <AvatarImage src={me.avatarUrl ?? undefined} alt={me.email ?? "Profile"} />
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+      </Button>
 
       {open ? (
         <div className="bg-popover text-popover-foreground absolute right-0 top-11 z-50 min-w-56 rounded-md border border-border/60 p-2 shadow-lg">

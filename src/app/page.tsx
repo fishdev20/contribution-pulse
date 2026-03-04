@@ -53,7 +53,7 @@ export default function HomePage() {
       </section>
 
       <section className="mt-8">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-4 flex flex-col gap-2">
           <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Everything you need, without exposing private metadata</h2>
           <p className="max-w-xl text-sm text-muted-foreground">
             Built for developers who need trustworthy proof of activity from private repositories.

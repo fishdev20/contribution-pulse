@@ -1,17 +1,21 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { createClientSupabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { createClientSupabase } from "@/lib/supabase/client";
+import { Info, Loader2 } from "lucide-react";
+import { FormEvent, useState } from "react";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const supabase = createClientSupabase();
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -22,9 +26,11 @@ export default function SignInPage() {
 
     if (error) {
       setMessage(error.message);
+      setIsSubmitting(false);
       return;
     }
     setMessage("Magic link sent. Check your inbox.");
+    setIsSubmitting(false);
   }
 
   return (
@@ -39,13 +45,28 @@ export default function SignInPage() {
             <Input
               type="email"
               required
+              disabled={isSubmitting}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@company.com"
             />
-            <Button type="submit">Send magic link</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send magic link"
+              )}
+            </Button>
           </form>
-          {message ? <p className="mt-4 text-sm text-slate-700">{message}</p> : null}
+          {message ? (
+            <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <Info className="size-4" />
+              {message}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </div>
